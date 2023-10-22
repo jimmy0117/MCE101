@@ -1,24 +1,22 @@
-# CodingAPE MAZES Version:1.0
-# Copyright 2023, Jimmy Chang ,Hao Cheng
-# https://github.com/jimmy0117/MCE101
+# MINECRAFT MAZES v1.0
+# Copyright 2021, David Bailey / Crux
+# Looking for instructions or more info? Try here:                    
+# https://github.com/crux888/minecraft-mazes-makecode  
 
-#================
-#maze_blocks:maze's wall block type
-#floor_blocks:maze's floor block type
-#add_torches:wheather maze need light
-#solve_maze:wheather u want to know the shortest path
-#path_block:if solve_maze is true will place this block to show path
-#================
+
+# Do you want your mazes to look different?
+# If so, then try changing these values...
 maze_blocks = COBBLESTONE
-floor_blocks = IRON_BLOCK
+tower_blocks = STONE_BRICKS
+pyramid_blocks = CHISELED_SANDSTONE
+diamond_blocks = GOLD_BLOCK
 add_torches = True
 solve_maze = True
 wall_height = 2
-path_block = LIME_CARPET
 
 
-#================
-#not really used for u haha.
+# Hmmm, I wouldn't recommend changing any of these values though...
+# They're global constants and variables used throughout the code
 maze_type = ""
 maze_rows = 0
 maze_columns = 0
@@ -40,9 +38,12 @@ x_offset = 0
 z_offset = 0
 searched_steps = 0
 solution_steps = 0
+path_block = LIME_CARPET
 maximum_maze_rows_columns = 25
+maximum_maze_layers = 10
 minimum_maze_rows_columns = 3
-#================
+minimum_maze_layers = 3
+
 
 ###############
 # SIMPLE MAZE #
@@ -61,6 +62,53 @@ def on_on_chat(rows, columns):
 player.on_chat("maze", on_on_chat)
 
 
+##############
+# TOWER MAZE #
+##############
+
+def on_on_chat2(rows, columns, layers):
+    # Define global variables
+    global maze_type, maze_rows, maze_columns, maze_layers
+    # Set global variables for this type of maze
+    maze_type = "tower"
+    maze_rows = rows
+    maze_columns = columns
+    maze_layers = layers
+    # Run the main loop to build and solve the maze
+    mainLoop()
+player.on_chat("tower", on_on_chat2)
+
+
+################
+# PYRAMID MAZE #
+################
+
+def on_on_chat3(layers):
+    # Define global variables
+    global maze_type, maze_layers
+    # Set global variables for this type of maze
+    maze_type = "pyramid"
+    maze_layers = layers
+    # Run the main loop to build and solve the maze
+    mainLoop()
+player.on_chat("pyramid", on_on_chat3)
+
+
+################
+# DIAMOND MAZE #
+################
+
+def on_on_chat4(layers):
+    # Define global variables
+    global maze_type, maze_layers
+    # Set global variables for this type of maze
+    maze_type = "diamond"
+    maze_layers = layers
+    # Run the main loop to build and solve the maze
+    mainLoop()
+player.on_chat("diamond", on_on_chat4)
+
+
 #############
 # MAIN LOOP #
 #############
@@ -75,11 +123,24 @@ def mainLoop():
     # Build the maze layers
     current_layer = maze_layers
     for index in range (maze_layers):
-        
+        if maze_type == "pyramid":
+            # Set maze_rows and maze_columns for a pyramid maze
+            maze_rows = current_layer * 2 + 1
+            maze_columns = maze_rows
+        elif maze_type == "diamond":
+            # Set maze_rows and maze_columns for a diamond maze
+            if current_layer >= middle_layer:
+                maze_rows = (maze_layers - current_layer + 1) * 2 + 1
+            else:
+                maze_rows = (maze_layers - middle_layer + 1) * 2 + 1 - ((middle_layer - current_layer) * 2)
+            maze_columns = maze_rows
         # Draw the maze grid
         drawMazeGrid()
         # Build the maze, dude
         buildMaze()
+        # Add a roof for tower, pyramid, or diamond mazes
+        if (maze_type in ["tower", "pyramid", "diamond"]):
+            drawMazeRoof()
         current_layer -= 1
     # Draw the maze doors
     drawMazeDoors()
@@ -94,18 +155,37 @@ def initialiseMazeVariables():
     # Define global variables
     global maze_type, maze_rows, maze_columns, player_position, maze_position, maze_blocks
     global blocks_used, torches_used, wall_blocks, time_start, middle_layer
+    global tower_blocks, pyramid_blocks, diamond_blocks
     # Check if the maze needs resizing
     checkMazeSize()
     # Set additional variables for diamond mazes
+    if maze_type == "diamond":
+        maze_rows = 3
+        maze_columns = 3
+        middle_layer = Math.ceil(maze_layers / 2)
+    # Display a status message
     if (maze_type == "maze"):
-        player.say("開始建造迷宮...")
+        player.say("Creating maze...")
+    else:
+        player.say("Creating " + maze_type + " maze...")
     # Save the original position of the player in case they move while the maze is being built
     player_position = player.position()
     # Set the corner position of the maze so that the player will be facing the entrance/exit
-    maze_position = positions.add(player_position,
-        pos((Math.ceil(maze_columns / 2) -1) * -2, 0, 3))
+    if (maze_type == "pyramid"):
+        maze_position = positions.add(player_position,
+            pos(maze_layers * -2, 0, 3))
+    else:
+        maze_position = positions.add(player_position,
+            pos((Math.ceil(maze_columns / 2) -1) * -2, 0, 3))
     # Check if the maze_blocks variable needs updating for tower, pyramid, or diamond mazes
-    wall_blocks = maze_blocks
+    if (maze_type == "tower"):
+        wall_blocks = tower_blocks
+    elif (maze_type == "pyramid"):
+        wall_blocks = pyramid_blocks
+    elif (maze_type == "diamond"):
+        wall_blocks = diamond_blocks
+    else:
+        wall_blocks = maze_blocks
     # Reset maze counters and timer
     blocks_used = 0
     torches_used = 0
@@ -118,7 +198,7 @@ def checkMazeSize():
     # Set the message flag to false
     show_resize_message = False
     # Check maze_rows and maze_columns
-    if (maze_type == "maze"):
+    if (maze_type in ["maze", "tower"]):
         if (maze_rows < minimum_maze_rows_columns):
             maze_rows = minimum_maze_rows_columns
             show_resize_message = True
@@ -131,6 +211,20 @@ def checkMazeSize():
         elif (maze_columns > maximum_maze_rows_columns):
             maze_columns = maximum_maze_rows_columns
             show_resize_message = True
+    # Check maze_layers
+    if (maze_type in ["tower", "pyramid", "diamond"]):
+        if (maze_layers < minimum_maze_layers):
+            maze_layers = minimum_maze_layers
+            show_resize_message = True
+        elif (maze_layers > maximum_maze_layers):
+            maze_layers = maximum_maze_layers
+            show_resize_message = True
+    # Make sure that maze_layers is an odd number for diamond mazes
+    if maze_type == "diamond":
+        if Math.round(maze_layers / 2) == maze_layers / 2:
+            maze_layers += 1
+            show_resize_message = True
+    # Check wall_height
     if wall_height < 2:
         if maze_type == "maze":
             wall_height = 1
@@ -141,15 +235,26 @@ def checkMazeSize():
     if (show_resize_message):
         if (maze_type == "maze"):
             player.say("Resized maze (" + str(maze_rows) + " x " + str(maze_columns) + ")")
-    
+        elif (maze_type == "tower"):
+            player.say("Resized tower maze (" + str(maze_rows) + " x " + str(maze_columns) + " x " + str(maze_layers) + ")")
+        elif (maze_type in ["pyramid", "diamond"]):
+            player.say("Resized " + maze_type + " maze (" + str(maze_layers) + " layers)")
+
 
 def drawMazeFoundations():
     # Define global variables
     global maze_rows, maze_columns, maze_layers, maze_position, maze_blocks, blocks_used
+    # Check if maze_rows and maze_columns need calculating for a pyramid or diamond maze_columns
+    if (maze_type == "pyramid"):
+        maze_rows = maze_layers * 2 + 1
+        maze_columns = maze_layers * 2 + 1
+    elif (maze_type == "diamond"):
+        maze_rows = 3
+        maze_columns = 3
     # Draw a foundation layer underneath the maze
-    blocks.fill(floor_blocks,
+    blocks.fill(wall_blocks,
         positions.add(maze_position, pos(-1, -1, -1)),
-        positions.add(maze_position,
+        positions.add(maze_position, 
         pos(maze_columns * 2 - 1, -1, maze_rows *2 -1)),
         FillOperation.REPLACE)
     # Update the blocks_used variable based on the size of the foundation layer
@@ -192,7 +297,7 @@ def drawMazeGrid():
             FillOperation.REPLACE)
         x_coordinate += 2
     # Update the blocks_used variable based on the size of maze grid
-    blocks_used += ((maze_rows + 1) * (maze_columns * 2 + 1)
+    blocks_used += ((maze_rows + 1) * (maze_columns * 2 + 1) 
         + maze_columns * (maze_rows + 1)) * wall_height
 
 
@@ -271,7 +376,7 @@ def buildMaze():
                 stack_rows.append(current_cell_row)
                 stack_columns.append(current_cell_column - 1)
             else:
-                player.say("錯誤: 未知的角度")
+                player.say("Error: Unknown connection_direction")
             # Carve a path between the current cell and the new, unvisited neighbour
             blocks.fill(AIR,
                 world(x_coordinate + x_offset,
@@ -290,7 +395,92 @@ def buildMaze():
                     torches_used += 1
             
 
+def drawMazeRoof():
+    # Define global variables
+    global maze_type, maze_rows, maze_columns, maze_layers, maze_position, wall_height
+    global wall_blocks, blocks_used, current_layer, entrance_position, middle_layer
+    # Initialise local variables
+    x_offset = 0
+    z_offset = 0
+    roof_position1: Position = None
+    roof_position2: Position = None
+    # Draw a roof on the maze layer
+    if maze_type == "tower":
+        # Set the roof coordinates for a tower maze
+        roof_position1 = positions.add(maze_position, 
+        pos(-1, wall_height, -1))
+        roof_position2 = positions.add(maze_position, 
+        pos(maze_columns * 2 - 1, wall_height * 2 - 1, maze_rows * 2 - 1))
+        # Set the entrance position for a tower maze
+        if current_layer == 1:
+            x_offset = (Math.ceil(maze_columns / 2) - 1) * 2
+            z_offset = (Math.ceil(maze_rows / 2) - 1) * 2
+        else:
+            x_offset = randint(0, maze_columns - 1) * 2
+            z_offset = randint(0, maze_rows - 1) * 2
+        entrance_position = positions.add(maze_position, pos(x_offset, 0, z_offset))
+        # Move the tower maze up to the next layer
+        maze_position = positions.add(maze_position, pos(0, wall_height * 2, 0))
 
+    elif maze_type == "pyramid":
+        # Set the roof coordinates for a pyramid maze (roof is smaller than current layer)
+        roof_position1 = positions.add(maze_position, 
+        pos(0, wall_height, 0))
+        roof_position2 = positions.add(maze_position,
+        pos(maze_columns * 2 - 2, wall_height * 2 - 1, maze_rows * 2 - 2))
+        # Set the entrance offsets for a pyramid maze (roof is smaller than current layer)
+        x_offset = randint(1, maze_columns - 2) * 2
+        z_offset = randint(1, maze_rows - 2) * 2
+        entrance_position = positions.add(maze_position, pos(x_offset, 0, z_offset))
+        # Move the pyramid maze up to the next layer (decreasing in size)
+        maze_position = positions.add(maze_position, pos(2, wall_height * 2, 2))
+
+    elif maze_type == "diamond":
+        if current_layer > middle_layer:
+            # Lower half of a diamond maze...
+            # Set the roof coordinates for a diamond maze (roof is larger than current layer)
+            roof_position1 = positions.add(maze_position,
+                pos(-2, wall_height, -2))
+            roof_position2 = positions.add(maze_position,
+                pos(maze_columns * 2 + 0, wall_height * 2 - 1, maze_rows * 2 + 0))
+            # Set the entrance offsets for a diamond maze (roof is larger than current layer)
+            x_offset = randint(0, maze_columns - 1) * 2
+            z_offset = randint(0, maze_rows - 1) * 2
+            entrance_position = positions.add(maze_position, pos(x_offset, 0, z_offset))
+            # Move the diamond maze up to the next layer (increasing in size)
+            maze_position = positions.add(maze_position, pos(-2, wall_height * 2, -2))
+        else:
+            # Upper half of a diamond maze...
+            # Set the roof coordinates for a diamond maze (roof is smaller than current layer)
+            roof_position1 = positions.add(maze_position,
+                pos(0, wall_height, 0))
+            roof_position2 = positions.add(maze_position,
+                pos(maze_columns * 2 - 2, wall_height * 2 - 1, maze_rows * 2 - 2))
+            # Set the entrance offsets for a diamond maze (roof is smaller than current layer)
+            x_offset = randint(1, maze_columns - 2) * 2
+            z_offset = randint(1, maze_rows - 2) * 2
+            entrance_position = positions.add(maze_position, pos(x_offset, 0, z_offset))
+            # Move the diamond maze up to the next layer (decreasing in size)
+            maze_position = positions.add(maze_position, pos(2, wall_height * 2, 2))
+        
+    # Draw the floor
+    blocks.fill(wall_blocks, roof_position1, roof_position2, FillOperation.REPLACE)
+    blocks_used += ((roof_position2.get_value(Axis.X) - roof_position1.get_value(Axis.X) + 1) * 
+        (roof_position2.get_value(Axis.Y) - roof_position1.get_value(Axis.Y) + 1) * 
+        (roof_position2.get_value(Axis.Z) - roof_position1.get_value(Axis.Z) + 1))
+    # Draw the entrance
+    for index in range(3):
+        blocks.fill(SEA_LANTERN, entrance_position,
+            positions.add(entrance_position, pos(0, wall_height * 2 - 1, 0)),
+            FillOperation.REPLACE)
+        loops.pause(100)
+        blocks.fill(AIR, entrance_position,
+            positions.add(entrance_position, pos(0, wall_height * 2 - 1, 0)),
+            FillOperation.REPLACE)
+        loops.pause(100)
+    blocks_used -= wall_height
+    
+    
 def drawMazeDoors():
     # Define global variables
     global player_position, exit_position, entrance_position, blocks_used
@@ -304,12 +494,12 @@ def drawMazeDoors():
     for count in range(3):
         blocks.fill(SEA_LANTERN,
             exit_position,
-            positions.add(exit_position, pos(0, wall_height - 1, 0)),
+            positions.add(exit_position, pos(0, wall_height - 1, 0)), 
             FillOperation.REPLACE)
         if maze_type == "maze":
-            blocks.fill(SEA_LANTERN,
-                entrance_position,
-                positions.add(entrance_position, pos(0, wall_height - 1, 0)),
+            blocks.fill(SEA_LANTERN, 
+                entrance_position, 
+                positions.add(entrance_position, pos(0, wall_height - 1, 0)), 
                 FillOperation.REPLACE)
         loops.pause(100)
         blocks.fill(AIR,
@@ -335,29 +525,31 @@ def showMazeInfo():
     time_seconds = Math.round((gameplay.time_query(GAME_TIME) - time_start) / 20)
     # Display maze information
     if maze_type == "maze":
-        player.say("迷宮建造完成")
+        player.say("Finished creating maze")
+    else:
+        player.say("Finished creating " + maze_type + " maze")
     if time_seconds == 1:
-        player.say("時間花費: " + str(time_seconds) + " second")
+        player.say("...Time taken: " + str(time_seconds) + " second")
     elif time_seconds < 60:
-        player.say("時間花費: " + str(time_seconds) + " seconds")
+        player.say("...Time taken: " + str(time_seconds) + " seconds")
     else:
         time_minutes = Math.round(time_seconds / 60)
         if time_minutes == 1:
-            player.say("時間花費: " + str(time_minutes) + " minute")
+            player.say("...Time taken: " + str(time_minutes) + " minute")
         else:
-            player.say("時間花費: " + str(time_minutes) + " minutes")
-    player.say("方塊使用量: " + str(blocks_used))
+            player.say("...Time taken: " + str(time_minutes) + " minutes")
+    player.say("...Blocks used: " + str(blocks_used))
     if add_torches:
-        player.say("火把使用量: " + str(torches_used))
+        player.say("...Torches used: " + str(torches_used))
 
 
 def solveMaze():
     # Define global variables
-    global robot_position, robot_orientation, maze_solve_path, entrance_position, exit_position
+    global robot_position, robot_orientation, maze_solve_path, entrance_position, exit_position    
     global searched_steps, solution_steps
     # Initialise local variables
     robot_position = entrance_position
-    robot_orientation = "N"
+    robot_orientation = "N"    
     maze_solve_loop = True
     maze_solve_path = []
     searched_steps = 0
@@ -365,7 +557,9 @@ def solveMaze():
     time_start = gameplay.time_query(GAME_TIME)
     # Display status message
     if maze_type == "maze":
-        player.say("規劃路徑中...")
+        player.say("Solving maze...")
+    else:
+        player.say("Solving " + maze_type + " maze...")
     # Solve the maze, baby...
     while maze_solve_loop:
         # Rule 1: If there's air underneath the (invisible) robot, move it down to the next layer
@@ -402,18 +596,20 @@ def solveMaze():
                     moveRobotForward()
     # Display status messages
     if maze_type == "maze":
-        player.say("路徑規劃完成")
+        player.say("Finished solving maze")
+    else:
+        player.say("Finished solving " + maze_type + " maze")
     time_seconds = Math.round((gameplay.time_query(GAME_TIME) - time_start) / 20)
     if time_seconds < 60:
-        player.say("時間花費: " + str(time_seconds) + " seconds")
+        player.say("...Time taken: " + str(time_seconds) + " seconds")
     else:
         time_minutes = Math.round(time_seconds / 60)
         if time_minutes == 1:
-            player.say("時間花費: " + str(time_minutes) + " minute")
+            player.say("...Time taken: " + str(time_minutes) + " minute")
         else:
-            player.say("時間花費: " + str(time_minutes) + " minutes")
-    player.say("路徑尋找嘗試: " + str(searched_steps) + " steps")
-    player.say("解答花費步數: " + str(solution_steps) + " steps")
+            player.say("...Time taken: " + str(time_minutes) + " minutes")
+    player.say("...Path searched: " + str(searched_steps) + " steps")
+    player.say("...Path found: " + str(solution_steps) + " steps")
     
     
 def robotTestForAir(direction: str):
